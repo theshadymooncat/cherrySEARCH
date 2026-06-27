@@ -584,6 +584,11 @@
     /* ─── FAVICONS ─── */
     .result-favicon {
       width: 22px; height: 22px; border-radius: 6px;
+      flex-shrink: 0; object-fit: contain; background: rgba(255,255,255,0.06);
+      padding: 2px;
+    }
+    .result-favicon-letter {
+      width: 22px; height: 22px; border-radius: 6px;
       flex-shrink: 0; display: flex; align-items: center; justify-content: center;
       font-size: 11px; font-weight: 700; color: white;
       box-shadow: 0 1px 2px rgba(0,0,0,0.18), 0 2px 4px rgba(0,0,0,0.1), inset 0 1px 0 rgba(255,255,255,0.35), inset 0 -2px 3px rgba(0,0,0,0.15);
@@ -591,6 +596,11 @@
       letter-spacing: -0.02em;
       position: relative;
       background-image: linear-gradient(160deg, rgba(255,255,255,0.25), transparent 50%);
+    }
+    .top-result-favicon {
+      width: 96px; flex-shrink: 0; object-fit: contain;
+      padding: 18px; background: rgba(255,255,255,0.04);
+      border-right: 1px solid var(--border);
     }
 
     .result-host { font-size: 12px; color: var(--text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 500; }
@@ -1205,6 +1215,10 @@
       return (hostname.charAt(0) || "?").toUpperCase();
     }
 
+    function getFaviconUrl(hostname) {
+      return `https://www.google.com/s2/favicons?domain=${hostname}&sz=32`;
+    }
+
     function shade(hex, percent) {
       const num = parseInt(hex.replace("#", ""), 16);
       let r = (num >> 16) + Math.round(2.55 * percent);
@@ -1601,7 +1615,8 @@
 
           if (isTop) {
             card.innerHTML = `
-              <div class="top-result-badge" style="background:linear-gradient(160deg, ${faviconColor}, ${shade(faviconColor, -22)})">${faviconLetter}</div>
+              <img class="top-result-favicon" src="${getFaviconUrl(hostname)}" alt="${faviconLetter}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'" loading="lazy" />
+              <div class="top-result-badge" style="display:none;background:linear-gradient(160deg, ${faviconColor}, ${shade(faviconColor, -22)})">${faviconLetter}</div>
               <div class="top-result-body">
                 <div class="result-url-bar">
                   <span class="result-host">${escapeHtml(hostname)}</span>
@@ -1613,7 +1628,8 @@
           } else {
             card.innerHTML = `
               <div class="result-url-bar">
-                <div class="result-favicon" style="background:${faviconColor}">${faviconLetter}</div>
+                <img class="result-favicon" src="${getFaviconUrl(hostname)}" alt="${faviconLetter}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'" loading="lazy" />
+                <div class="result-favicon-letter" style="display:none;background:${faviconColor}">${faviconLetter}</div>
                 <span class="result-host">${escapeHtml(hostname)}</span>
                 <span class="result-engine">${escapeHtml(r.engine)}</span>
               </div>
