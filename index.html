@@ -938,6 +938,29 @@
         searchClear.style.display = "flex";
         performSearch(urlQuery);
       }
+
+      // ─── Back/forward navigation ───
+      window.addEventListener("popstate", () => {
+        const params = new URLSearchParams(location.search);
+        const q = params.get("q");
+        if (q) {
+          searchInput.value = q;
+          searchClear.style.display = "flex";
+          performSearch(q);
+        } else {
+          // Return to landing
+          state.query = "";
+          state.searched = false;
+          state.results = [];
+          heroLanding.classList.remove("hidden");
+          quickActions.classList.remove("hidden");
+          searchGlass.classList.remove("compacted");
+          tabs.style.display = "none";
+          mainLayout.style.display = "none";
+          searchInput.value = "";
+          searchClear.style.display = "none";
+        }
+      });
     }
 
     // ─── BACKGROUND: cursor-reactive grid reveal + glow ───
@@ -1336,6 +1359,13 @@
 
     // ─── SEARCH ───
     async function performSearch(query) {
+      // Push to browser history for back/forward navigation
+      const params = new URLSearchParams(location.search);
+      if (query) params.set("q", query);
+      else params.delete("q");
+      const newUrl = params.toString() ? `?${params.toString()}` : location.pathname;
+      history.pushState({ query }, "", newUrl);
+
       state.query = query;
       state.searched = true;
       state.loading = true;
