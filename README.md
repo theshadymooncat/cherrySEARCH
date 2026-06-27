@@ -84,7 +84,7 @@ If your SearXNG is on `localhost`, you need a tunnel to make it publicly accessi
 1. Download [cloudflared](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/downloads/)
 2. Run:
    ```bash
-   cloudflared tunnel --url http://localhost:8888
+   cloudflared tunnel --url http://localhost:[your port number]
    ```
 3. It prints a URL like `https://something.trycloudflare.com` — use that as your SearXNG instance URL.
 
