@@ -3,6 +3,15 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!--
+      CSP note: script-src needs 'unsafe-inline' because of the inline <script> block and
+      onerror="" attributes on favicon <img> tags below. That weakens the XSS protection a
+      CSP normally gives you — a proper fix means moving those onerror handlers to
+      addEventListener calls and dropping 'unsafe-inline'. connect-src/img-src are left
+      broad (https:) on purpose since the instance URL, proxy URL, and AI model are all
+      user-configurable in settings, so a fixed allowlist would break that.
+    -->
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https:; connect-src https:; base-uri 'self'; object-src 'none'; frame-ancestors 'none';" />
     <title>cherrySEARCH</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -551,6 +560,25 @@
             border: 1px solid var(--border);
             border-radius: 100px;
             box-shadow: var(--shadow-sm), var(--rim-light-soft);
+            position: relative;
+        }
+        .tab-pill {
+            position: absolute;
+            top: 4px;
+            left: 0;
+            height: calc(100% - 8px);
+            width: 0;
+            border-radius: 100px;
+            background: var(--accent);
+            box-shadow: 0 2px 8px rgba(255, 61, 127, 0.3);
+            transform: translateX(0);
+            transition: transform 0.45s cubic-bezier(0.22, 1, 0.36, 1), width 0.45s cubic-bezier(0.22, 1, 0.36, 1);
+            pointer-events: none;
+            z-index: 0;
+            opacity: 0;
+        }
+        .tab-pill.ready {
+            opacity: 1;
         }
         .tab {
             padding: 6px 14px;
@@ -562,19 +590,19 @@
             border: none;
             cursor: pointer;
             border-radius: 100px;
-            transition: all 0.2s ease;
+            transition: color 0.25s ease;
             display: flex;
             align-items: center;
             gap: 5px;
             white-space: nowrap;
+            position: relative;
+            z-index: 1;
         }
         .tab:hover {
             color: var(--text);
         }
         .tab.active {
             color: white;
-            background: var(--accent);
-            box-shadow: 0 2px 8px rgba(255, 61, 127, 0.3);
         }
 
         .main-layout {
@@ -1731,6 +1759,200 @@
             text-decoration: underline;
         }
 
+        /* ——— toast notifications ——— */
+        .toast-container {
+            position: fixed;
+            bottom: 24px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            flex-direction: column-reverse;
+            gap: 8px;
+            z-index: 300;
+            pointer-events: none;
+            align-items: center;
+        }
+        .toast {
+            background: var(--bg-elevated);
+            backdrop-filter: blur(16px) saturate(160%);
+            -webkit-backdrop-filter: blur(16px) saturate(160%);
+            border: 1px solid var(--border);
+            box-shadow: var(--shadow-lg), var(--rim-light-soft);
+            color: var(--text);
+            font-size: 13px;
+            font-weight: 500;
+            padding: 12px 18px;
+            border-radius: var(--radius);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            max-width: min(90vw, 380px);
+            opacity: 0;
+            transform: translateY(10px);
+            transition: opacity 0.25s ease, transform 0.25s ease;
+            pointer-events: auto;
+        }
+        .toast.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+        .toast-icon {
+            flex-shrink: 0;
+            color: var(--accent);
+        }
+
+        /* ——— skeleton loading ——— */
+        .skeleton-list {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        .skeleton-card {
+            pointer-events: none;
+        }
+        .skeleton-line {
+            border-radius: 6px;
+            background: linear-gradient(90deg, var(--border) 25%, var(--accent-glow) 50%, var(--border) 75%);
+            background-size: 200% 100%;
+            animation: skeletonShimmer 1.4s ease-in-out infinite;
+        }
+        @keyframes skeletonShimmer {
+            0% { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
+        }
+
+        /* ——— back to top ——— */
+        .back-to-top {
+            position: fixed;
+            bottom: 28px;
+            right: 28px;
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            background: var(--accent);
+            color: #fff;
+            border: none;
+            box-shadow: var(--shadow-lg), var(--rim-light);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            opacity: 0;
+            transform: translateY(16px);
+            transition: opacity 0.25s ease, transform 0.25s ease, background 0.2s ease;
+            pointer-events: none;
+            z-index: 150;
+        }
+        .back-to-top.visible {
+            opacity: 1;
+            transform: translateY(0);
+            pointer-events: auto;
+        }
+        .back-to-top:hover {
+            transform: translateY(-3px);
+        }
+        .back-to-top:active {
+            transform: translateY(0) scale(0.94);
+        }
+        @media (max-width: 640px) {
+            .back-to-top {
+                bottom: 20px;
+                right: 16px;
+                width: 40px;
+                height: 40px;
+            }
+        }
+
+        /* ——— image lightbox ——— */
+        .lightbox {
+            position: fixed;
+            inset: 0;
+            background: rgba(10, 5, 8, 0.88);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 400;
+            padding: 40px;
+        }
+        .lightbox.visible {
+            display: flex;
+        }
+        .lightbox-content {
+            max-width: 90vw;
+            max-height: 88vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 14px;
+        }
+        .lightbox-img {
+            max-width: 100%;
+            max-height: 74vh;
+            border-radius: var(--radius);
+            box-shadow: var(--shadow-xl);
+            object-fit: contain;
+        }
+        .lightbox-info {
+            text-align: center;
+            color: #fff;
+        }
+        .lightbox-title {
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 4px;
+            max-width: 70vw;
+        }
+        .lightbox-source {
+            font-size: 12px;
+            color: var(--pink-300);
+            text-decoration: none;
+        }
+        .lightbox-source:hover {
+            text-decoration: underline;
+        }
+        .lightbox-close,
+        .lightbox-nav {
+            position: fixed;
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            color: #fff;
+            border-radius: 50%;
+            width: 44px;
+            height: 44px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            backdrop-filter: blur(8px);
+            transition: background 0.2s ease;
+        }
+        .lightbox-close:hover,
+        .lightbox-nav:hover {
+            background: rgba(255, 255, 255, 0.22);
+        }
+        .lightbox-close {
+            top: 24px;
+            right: 24px;
+        }
+        .lightbox-prev {
+            left: 24px;
+            top: 50%;
+            transform: translateY(-50%);
+        }
+        .lightbox-next {
+            right: 24px;
+            top: 50%;
+            transform: translateY(-50%);
+        }
+        @media (max-width: 640px) {
+            .lightbox { padding: 16px; }
+            .lightbox-close { top: 12px; right: 12px; }
+            .lightbox-prev { left: 8px; }
+            .lightbox-next { right: 8px; }
+        }
+
         @media (prefers-reduced-motion: reduce) {
             *,
             *::before,
@@ -1861,7 +2083,8 @@
         </div>
 
         <div class="tabs-wrapper" id="tabs" style="display:none">
-            <div class="tabs-glass">
+            <div class="tabs-glass" id="tabs-glass">
+                <div class="tab-pill" id="tab-pill"></div>
                 <button class="tab active" data-cat="general"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>All</button>
                 <button class="tab" data-cat="images"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>Images</button>
                 <button class="tab" data-cat="news"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 22h16a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v16a2 2 0 0 1-2 2Zm0 0a2 2 0 0 1-2-2v-9c0-1.1.9-2 2-2h2"/><path d="M18 14h-8"/><path d="M15 18h-5"/><path d="M10 6h8v4h-8V6Z"/></svg>News</button>
@@ -1898,6 +2121,31 @@
         <footer>
             cherrySEARCH · Powered by <a href="https://github.com/searxng/searxng" target="_blank" rel="noopener noreferrer">SearXNG</a>
         </footer>
+    </div>
+
+    <div class="toast-container" id="toast-container"></div>
+
+    <button class="back-to-top" id="back-to-top" aria-label="Back to top" title="Back to top">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>
+    </button>
+
+    <div class="lightbox" id="lightbox">
+        <button class="lightbox-close" id="lightbox-close" aria-label="Close image">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+        <button class="lightbox-nav lightbox-prev" id="lightbox-prev" aria-label="Previous image">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+        </button>
+        <button class="lightbox-nav lightbox-next" id="lightbox-next" aria-label="Next image">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+        </button>
+        <div class="lightbox-content">
+            <img class="lightbox-img" id="lightbox-img" src="" alt="" />
+            <div class="lightbox-info">
+                <div class="lightbox-title" id="lightbox-title"></div>
+                <a class="lightbox-source" id="lightbox-source" target="_blank" rel="noopener noreferrer"></a>
+            </div>
+        </div>
     </div>
 
     <script>
@@ -1941,6 +2189,8 @@
         const searchGlass = $("#search-glass");
         const searchClear = $("#search-clear");
         const tabs = $("#tabs");
+        const tabsGlass = $("#tabs-glass");
+        const tabPill = $("#tab-pill");
         const mainLayout = $("#main-layout");
         const resultsContainer = $("#results-container");
         const resultsCol = $("#results-col");
@@ -1964,6 +2214,15 @@
         const sunIcon = $("#sun-icon");
         const moonIcon = $("#moon-icon");
         const logoLink = $("#logo-link");
+        const toastContainer = $("#toast-container");
+        const backToTop = $("#back-to-top");
+        const lightbox = $("#lightbox");
+        const lightboxImg = $("#lightbox-img");
+        const lightboxTitle = $("#lightbox-title");
+        const lightboxSource = $("#lightbox-source");
+        const lightboxClose = $("#lightbox-close");
+        const lightboxPrev = $("#lightbox-prev");
+        const lightboxNext = $("#lightbox-next");
 
         function goToLanding() {
             const params = new URLSearchParams(location.search);
@@ -2027,6 +2286,13 @@
             window.addEventListener("scroll", () => {
                 header.classList.toggle("scrolled", window.scrollY > 10);
             }, { passive: true });
+
+            window.addEventListener("scroll", () => {
+                backToTop.classList.toggle("visible", window.scrollY > 600);
+            }, { passive: true });
+            backToTop.addEventListener("click", () => {
+                window.scrollTo({ top: 0, behavior: "smooth" });
+            });
 
             setupGlassTilt();
             setupCardTilt();
@@ -2201,6 +2467,7 @@
             if (!tab) return;
             $$(".tab").forEach(t => t.classList.remove("active"));
             tab.classList.add("active");
+            moveTabPill(tab);
             state.category = tab.dataset.cat;
             state.page = 0;
             state.allLoaded = false;
@@ -2396,14 +2663,10 @@
                 return;
             }
 
-            // If AI is disabled or no key, show a prompt
+            // If AI is disabled or no key, hide the AI overview box entirely
             if (!state.aiEnabled || !state.aiKey) {
-                aiSidebar.className = "ai-overview";
-                aiSidebar.innerHTML = `
-                    <div class="ai-overview-body" style="padding:16px 22px;color:var(--text-tertiary);text-align:center;font-size:13px;">
-                        <span style="display:block;font-size:20px;margin-bottom:6px;">🔑</span>
-                        Enable AI in settings and add your OpenRouter API key.
-                    </div>`;
+                aiSidebar.style.display = "none";
+                aiSidebarCol.style.display = "none";
                 return;
             }
 
@@ -2534,6 +2797,7 @@
                 console.error("AI overview failed:", err);
                 state.aiOverview = null;
                 state.aiSources = [];
+                showToast("AI overview failed to load.");
             } finally {
                 state.aiLoading = false;
                 renderAiSidebar();
@@ -2573,6 +2837,7 @@
             searchClear.style.display = "none";
             resultsSearchInput.value = query;
             resultsSearchClear.style.display = "flex";
+            moveTabPill($(".tab.active"));
 
             // Always show AI sidebar placeholder (if general)
             if (state.category === "general") {
@@ -2612,6 +2877,7 @@
             } catch (err) {
                 console.error("Search failed:", err);
                 if (page === 0) state.results = [];
+                showToast(page === 0 ? "Couldn't reach the search instance." : "Couldn't load more results.");
             } finally {
                 state.loading = false;
                 state.loadingMore = false;
@@ -2698,11 +2964,14 @@
             resultsContainer.innerHTML = "";
 
             if (state.loading) {
-                resultsContainer.innerHTML = `
-                    <div class="loading">
-                        <div class="loader"><div class="loader-ring"></div><div class="loader-ring"></div></div>
-                        <span style="font-size:13px;color:var(--text-secondary);font-weight:500">Searching...</span>
-                    </div>`;
+                resultsContainer.innerHTML =
+                    `<div class="skeleton-list">${Array.from({ length: 6 }).map(() => `
+                        <div class="result-card skeleton-card">
+                            <div class="skeleton-line" style="width:28%;height:11px;margin-bottom:12px"></div>
+                            <div class="skeleton-line" style="width:65%;height:16px;margin-bottom:9px"></div>
+                            <div class="skeleton-line" style="width:92%;height:12px;margin-bottom:6px"></div>
+                            <div class="skeleton-line" style="width:55%;height:12px"></div>
+                        </div>`).join("")}</div>`;
                 return;
             }
 
@@ -2761,6 +3030,11 @@
                     card.innerHTML = `
                         ${thumb ? `<img src="${escapeHtml(thumb)}" alt="${escapeHtml(r.title)}" loading="lazy" />` : `<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:32px;background:rgba(128,128,128,0.06)">🖼️</div>`}
                         <div class="image-card-overlay"><div class="image-card-title">${escapeHtml(r.title)}</div><div class="image-card-source">${escapeHtml(hostname)}</div></div>`;
+                    card.addEventListener("click", (e) => {
+                        if (e.metaKey || e.ctrlKey || e.shiftKey || e.button === 1) return;
+                        e.preventDefault();
+                        openLightbox(state.results.indexOf(r));
+                    });
                     grid.appendChild(card);
                 });
                 resultsContainer.appendChild(grid);
@@ -2923,6 +3197,72 @@
             return d.innerHTML;
         }
 
+        // ─── TAB PILL ───
+        function moveTabPill(tabEl) {
+            if (!tabEl || !tabPill || !tabsGlass) return;
+            const glassRect = tabsGlass.getBoundingClientRect();
+            const tabRect = tabEl.getBoundingClientRect();
+            const x = tabRect.left - glassRect.left;
+            tabPill.style.width = `${tabRect.width}px`;
+            tabPill.style.transform = `translateX(${x}px)`;
+            tabPill.classList.add("ready");
+        }
+
+        // ─── TOAST ───
+        function showToast(message) {
+            if (!toastContainer) return;
+            const toast = document.createElement("div");
+            toast.className = "toast";
+            toast.innerHTML =
+                `<svg class="toast-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg><span>${escapeHtml(message)}</span>`;
+            toastContainer.appendChild(toast);
+            requestAnimationFrame(() => toast.classList.add("visible"));
+            setTimeout(() => {
+                toast.classList.remove("visible");
+                setTimeout(() => toast.remove(), 250);
+            }, 3500);
+        }
+
+        // ─── IMAGE LIGHTBOX ───
+        let lightboxIndex = -1;
+        function openLightbox(i) {
+            const imgs = state.results;
+            const r = imgs[i];
+            if (!r) return;
+            lightboxIndex = i;
+            let hostname = "";
+            try { hostname = new URL(r.url).hostname.replace(/^www\./, ""); } catch {}
+            lightboxImg.src = r.img_src || r.thumbnail || "";
+            lightboxImg.alt = r.title || "";
+            lightboxTitle.textContent = r.title || "";
+            lightboxSource.textContent = hostname;
+            lightboxSource.href = r.url;
+            lightbox.classList.add("visible");
+            document.body.style.overflow = "hidden";
+        }
+        function closeLightbox() {
+            lightbox.classList.remove("visible");
+            document.body.style.overflow = "";
+            lightboxIndex = -1;
+        }
+        function navLightbox(delta) {
+            if (lightboxIndex < 0 || !state.results.length) return;
+            const next = (lightboxIndex + delta + state.results.length) % state.results.length;
+            openLightbox(next);
+        }
+        lightboxClose.addEventListener("click", closeLightbox);
+        lightboxPrev.addEventListener("click", () => navLightbox(-1));
+        lightboxNext.addEventListener("click", () => navLightbox(1));
+        lightbox.addEventListener("click", (e) => {
+            if (e.target === lightbox) closeLightbox();
+        });
+        document.addEventListener("keydown", (e) => {
+            if (!lightbox.classList.contains("visible")) return;
+            if (e.key === "Escape") closeLightbox();
+            else if (e.key === "ArrowLeft") navLightbox(-1);
+            else if (e.key === "ArrowRight") navLightbox(1);
+        });
+
         let resizeTimer;
         window.addEventListener("resize", () => {
             clearTimeout(resizeTimer);
@@ -2931,6 +3271,8 @@
                 if (state.aiOverview || state.aiLoading || (state.searched && state.category === "general")) {
                     renderAiSidebar();
                 }
+                const activeTab = $(".tab.active");
+                if (activeTab && tabs.style.display !== "none") moveTabPill(activeTab);
             }, 200);
         });
 
